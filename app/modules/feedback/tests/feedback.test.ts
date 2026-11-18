@@ -48,9 +48,58 @@ describe("fileIssue", () => {
           "My long note disappeared",
           "--body",
           "_Sent from the feedback button on `/courses/typescript/lessons/3`._\n\nI clicked Save and the note was gone.\n",
+          "--label",
+          "agent:explore",
         ],
       },
     ]);
+  });
+
+  it("files the issue without the explore label when the repo lacks it", async () => {
+    const calls: { command: string; args: string[] }[] = [];
+    const run: RunCommand = async (command, args) => {
+      calls.push({ command, args });
+      if (command === "git") return "git@github.com:alice/cadence.git\n";
+      if (args.includes("--label")) {
+        throw new Error("could not add label: 'agent:explore' not found");
+      }
+      return `${ISSUE_URL}\n`;
+    };
+
+    const result = await createFeedback({ isDev: true, run }).fileIssue(
+      feedbackRequest(validFields)
+    );
+
+    expect(result).toEqual({ issueUrl: ISSUE_URL });
+    expect(calls).toHaveLength(3);
+    expect(calls[2].command).toBe("gh");
+    expect(calls[2].args).not.toContain("--label");
+    expect(calls[2].args.slice(0, 4)).toEqual([
+      "issue",
+      "create",
+      "--repo",
+      "alice/cadence",
+    ]);
+  });
+
+  it.each([
+    new Error("gh: not logged in"),
+    "could not add label: 'agent:explore' not found",
+  ])("fails without retrying when gh fails with %s", async (failure) => {
+    const calls: { command: string; args: string[] }[] = [];
+    const run: RunCommand = async (command, args) => {
+      calls.push({ command, args });
+      if (command === "git") return "git@github.com:alice/cadence.git\n";
+      if (args.includes("--label")) throw failure;
+      return `${ISSUE_URL}\n`;
+    };
+
+    const thrown = await createFeedback({ isDev: true, run })
+      .fileIssue(feedbackRequest(validFields))
+      .catch((error) => error);
+
+    expect(thrown).toBe(failure);
+    expect(calls).toHaveLength(2);
   });
 
   it.each([
