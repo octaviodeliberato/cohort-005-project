@@ -1,3 +1,5 @@
+import { MAX_NOTE_LENGTH } from "~/lib/notes";
+
 export type NoteDraft = {
   length: number;
   tooLong: boolean;
@@ -6,15 +8,18 @@ export type NoteDraft = {
   canSave: boolean;
 };
 
-export function describeDraft(
+// The save action trims before it validates and stores, so the draft is
+// measured and compared trimmed too; otherwise trailing whitespace leaves a
+// saved note looking unsaved.
+export function describeNoteDraft(
   draft: string,
-  savedBody: string,
-  maxLength: number
+  savedBody: string | undefined
 ): NoteDraft {
-  const length = draft.length;
-  const tooLong = length > maxLength;
-  const empty = draft.trim().length === 0;
-  const unsaved = draft !== savedBody;
+  const trimmed = draft.trim();
+  const length = trimmed.length;
+  const tooLong = length > MAX_NOTE_LENGTH;
+  const empty = length === 0;
+  const unsaved = trimmed !== (savedBody ?? "");
   return {
     length,
     tooLong,

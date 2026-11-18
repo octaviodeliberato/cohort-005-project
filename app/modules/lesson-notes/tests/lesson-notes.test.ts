@@ -15,8 +15,24 @@ describe("describeNoteDraft", () => {
   it("treats a whitespace-only draft as empty", () => {
     const draft = describeNoteDraft("   \n", undefined);
     expect(draft.empty).toBe(true);
-    expect(draft.unsaved).toBe(true);
+    expect(draft.unsaved).toBe(false);
     expect(draft.canSave).toBe(false);
+  });
+
+  it("treats a draft that only adds surrounding whitespace as saved", () => {
+    const draft = describeNoteDraft("  Generics \n", "Generics");
+    expect(draft.unsaved).toBe(false);
+    expect(draft.canSave).toBe(false);
+  });
+
+  it("counts the draft the way the save action does, without surrounding whitespace", () => {
+    const draft = describeNoteDraft(
+      `${"a".repeat(MAX_NOTE_LENGTH)}\n`,
+      undefined
+    );
+    expect(draft.length).toBe(MAX_NOTE_LENGTH);
+    expect(draft.tooLong).toBe(false);
+    expect(draft.canSave).toBe(true);
   });
 
   it("can save a new draft that differs from the saved note", () => {
