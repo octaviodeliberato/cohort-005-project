@@ -1,4 +1,4 @@
-import type { Route } from "../routes/+types/courses.$slug.lessons.$lessonId";
+import type { FullLessonView } from "~/components/lesson-view";
 import { useState, useEffect, useCallback } from "react";
 import { Link, useFetcher, useNavigate } from "react-router";
 import { CommentThread } from "~/components/comment-thread";
@@ -49,13 +49,7 @@ function useAutoplay() {
   return [enabled, toggle] as const;
 }
 
-type LessonLoaderData = Route.ComponentProps["loaderData"];
-
-export function FullLesson({
-  data,
-}: {
-  data: Extract<LessonLoaderData, { view: "full" }>;
-}) {
+export function FullLesson({ data }: { data: FullLessonView }) {
   const {
     course,
     curriculum,
