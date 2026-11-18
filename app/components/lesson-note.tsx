@@ -45,7 +45,8 @@ export function LessonNote({ note }: { note: SavedNote | null }) {
             onChange={(event) => setBody(event.target.value)}
             placeholder="Jot down what you want to remember from this lesson..."
             aria-label="Your notes"
-            className="min-h-24 resize-y"
+            rows={4}
+            className="resize-y"
           />
           <div className="flex items-center gap-3">
             <Button
@@ -67,7 +68,7 @@ export function LessonNote({ note }: { note: SavedNote | null }) {
 function NoteStatus({ status }: { status: NoteDraftStatus }) {
   switch (status.kind) {
     case "error":
-      return <span className="text-sm text-destructive">{status.message}</span>;
+      return <span className="text-xs text-destructive">{status.message}</span>;
     case "too-long":
       return (
         <span className="text-xs text-destructive">
