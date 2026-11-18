@@ -11,6 +11,10 @@ Read CODING_STANDARDS.md.
 - Ship tests with the code. End with more passing tests than you started
   with, and none failing.
 - `npm run build` must pass too.
+- Run `npm run check` before you build the feature and again before you
+  commit. When `lint:tokens` says a file you need is too big, split it first,
+  as a pure move in a commit of its own, then build the feature in the next
+  commit.
 - Commit with `git commit` on the current branch. When the pre-commit hook
   rejects a commit, fix the work and commit again. The hook stays as it is:
   no `--no-verify`, no edits to `.husky/`, `scripts/pre-commit.sh` or

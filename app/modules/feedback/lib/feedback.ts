@@ -50,7 +50,7 @@ export async function fileFeedbackIssue(deps: FeedbackDeps, form: FormData) {
   }
 
   const repo = await originRepo(deps.run);
-  const stdout = await deps.run("gh", [
+  const args = [
     "issue",
     "create",
     "--repo",
@@ -59,7 +59,26 @@ export async function fileFeedbackIssue(deps: FeedbackDeps, form: FormData) {
     parsed.data.title,
     "--body",
     issueBody(parsed.data),
-  ]);
+  ];
+  const stdout = await deps
+    .run("gh", [...args, "--label", EXPLORE_LABEL])
+    .catch((error: unknown) => {
+      if (!isMissingLabel(error)) throw error;
+      return deps.run("gh", args);
+    });
 
   return { issueUrl: stdout.trim() };
+}
+
+// Feedback is a one-line complaint, not a spec. The explore workflow turns it
+// into findings an implementer can build from, so every report starts there.
+const EXPLORE_LABEL = "agent:explore";
+
+// A fresh clone has no `agent:explore` label until someone creates it. The
+// report still gets filed, just without the hand-off to explore.
+function isMissingLabel(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes(`'${EXPLORE_LABEL}' not found`)
+  );
 }

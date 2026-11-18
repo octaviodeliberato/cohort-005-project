@@ -71,7 +71,9 @@ module.exports = {
         "No dependency cycles. Scope to `^${R}/` if you want to allow cycles outside packages.",
       severity: "error",
       from: {},
-      to: { circular: true },
+      // Runtime cycles only, as before tsPreCompilationDeps was on: a cycle
+      // through `import type` vanishes at compile time.
+      to: { circular: true, viaOnly: { dependencyTypesNot: ["type-only"] } },
     },
 
     // --- Layering (optional, off by default) ----------------------------------
@@ -85,6 +87,20 @@ module.exports = {
     //   from: { path: `^${R}/ui/` },
     //   to:   { path: `^${R}/billing/` },
     // },
+
+    {
+      name: "only-routes-import-routes",
+      comment:
+        "A route is a leaf: components, lib and modules never import one, its generated ./+types included. Give a shared component its own prop types.",
+      severity: "error",
+      from: {
+        path: "^app/",
+        pathNot: "^app/(routes/|routes\\.ts$|root\\.tsx$)",
+      },
+      // `./+types/*` does not resolve (it lives under .react-router/types via
+      // tsconfig rootDirs), so match the import path as written.
+      to: { path: "(^app/routes/|(^|/)routes/[+]types/)" },
+    },
 
     {
       name: "instructor-analytics-route-no-db",
@@ -107,6 +123,9 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: "node_modules" },
+    // Count `import type` too, so a rule sees a component reaching into a
+    // route's generated ./+types.
+    tsPreCompilationDeps: true,
     tsConfig: { fileName: "tsconfig.json" },
     enhancedResolveOptions: {
       extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
