@@ -14,14 +14,20 @@ export type NoteDraft = {
   status: NoteDraftStatus;
 };
 
+export type SavedNote = { body: string; updatedAt: string };
+
 export type DescribeNoteDraftInput = {
   draft: string;
-  saved: { body: string; updatedAt: string } | null;
+  saved: SavedNote | null;
   maxLength: number;
   error?: string;
 };
 
-export function describe({
+/**
+ * What the lesson note editor should show for the text in it: the character
+ * count, whether Save is enabled, and one status line.
+ */
+export function describeNoteDraft({
   draft,
   saved,
   maxLength,
@@ -52,7 +58,7 @@ function statusOf({
   tooLong: boolean;
   empty: boolean;
   unsaved: boolean;
-  saved: DescribeNoteDraftInput["saved"];
+  saved: SavedNote | null;
 }): NoteDraftStatus {
   if (error) return { kind: "error", message: error };
   if (tooLong) return { kind: "too-long" };

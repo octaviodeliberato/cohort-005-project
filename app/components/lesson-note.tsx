@@ -10,13 +10,10 @@ import {
   describeNoteDraft,
   type NoteDraft,
   type NoteDraftStatus,
+  type SavedNote,
 } from "~/modules/note-draft";
 
-export function LessonNote({
-  note,
-}: {
-  note: { body: string; updatedAt: string } | null;
-}) {
+export function LessonNote({ note }: { note: SavedNote | null }) {
   const fetcher = useFetcher<{ ok: boolean; error?: string }>();
   const [body, setBody] = useState(note?.body ?? "");
   const [submittedBody, setSubmittedBody] = useState<string | null>(null);
