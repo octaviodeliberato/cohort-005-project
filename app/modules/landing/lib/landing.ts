@@ -80,8 +80,10 @@ function getFeaturedCourses(db: Db): FeaturedCourse[] {
   }));
 }
 
+// An aggregate without GROUP BY always returns exactly one row, so the
+// counts below need no fallback.
 function getStats(db: Db): LandingStats {
-  const courseStats = db
+  const [courseStats] = db
     .select({
       courses: countDistinct(courses.id),
       instructors: countDistinct(courses.instructorId),
@@ -89,22 +91,17 @@ function getStats(db: Db): LandingStats {
     })
     .from(courses)
     .where(isPublished)
-    .get();
+    .all();
 
-  const lessonStats = db
+  const [lessonStats] = db
     .select({ lessons: count(lessons.id) })
     .from(lessons)
     .innerJoin(modules, eq(lessons.moduleId, modules.id))
     .innerJoin(courses, eq(modules.courseId, courses.id))
     .where(isPublished)
-    .get();
+    .all();
 
-  return {
-    courses: courseStats?.courses ?? 0,
-    instructors: courseStats?.instructors ?? 0,
-    categories: courseStats?.categories ?? 0,
-    lessons: lessonStats?.lessons ?? 0,
-  };
+  return { ...courseStats, lessons: lessonStats.lessons };
 }
 
 export function getLandingPage(db: Db): LandingPage {
