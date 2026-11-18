@@ -8,6 +8,8 @@ import {
   setUp,
 } from "./fixtures";
 
+const NOW = new Date("2026-03-01T12:00:00.000Z");
+
 let world: ReturnType<typeof setUp>;
 
 beforeEach(() => {
@@ -87,16 +89,16 @@ describe("lesson progress", () => {
 
   it("completes a lesson with a completion time", () => {
     const { a } = twoModuleCourse();
-    world.page.markLessonComplete(world.user.id, a.id);
+    world.page.markLessonComplete(world.user.id, a.id, NOW);
     const progress = world.page.getLessonProgress(world.user.id, a.id);
     expect(progress?.status).toBe(LessonProgressStatus.Completed);
-    expect(progress?.completedAt).toEqual(expect.any(String));
+    expect(progress?.completedAt).toBe(NOW.toISOString());
   });
 
   it("completes a lesson already in progress", () => {
     const { a } = twoModuleCourse();
     world.page.markLessonInProgress(world.user.id, a.id);
-    world.page.markLessonComplete(world.user.id, a.id);
+    world.page.markLessonComplete(world.user.id, a.id, NOW);
     expect(
       world.page.getLessonProgressForCourse(world.user.id, world.course.id)
     ).toHaveLength(1);
@@ -107,7 +109,7 @@ describe("lesson progress", () => {
 
   it("does not move a completed lesson back to in progress", () => {
     const { a } = twoModuleCourse();
-    world.page.markLessonComplete(world.user.id, a.id);
+    world.page.markLessonComplete(world.user.id, a.id, NOW);
     world.page.markLessonInProgress(world.user.id, a.id);
     expect(world.page.getLessonProgress(world.user.id, a.id)?.status).toBe(
       LessonProgressStatus.Completed
@@ -116,7 +118,7 @@ describe("lesson progress", () => {
 
   it("moves a not-started record to in progress", () => {
     const { a } = twoModuleCourse();
-    world.page.markLessonComplete(world.user.id, a.id);
+    world.page.markLessonComplete(world.user.id, a.id, NOW);
     world.db
       .update(lessonProgress)
       .set({ status: LessonProgressStatus.NotStarted })
@@ -139,10 +141,10 @@ describe("lesson progress", () => {
       title: "X",
       position: 1,
     });
-    world.page.markLessonComplete(world.user.id, a.id);
+    world.page.markLessonComplete(world.user.id, a.id, NOW);
     world.page.markLessonInProgress(world.user.id, c.id);
-    world.page.markLessonComplete(world.user.id, otherLesson.id);
-    world.page.markLessonComplete(world.instructor.id, a.id);
+    world.page.markLessonComplete(world.user.id, otherLesson.id, NOW);
+    world.page.markLessonComplete(world.instructor.id, a.id, NOW);
 
     const records = world.page.getLessonProgressForCourse(
       world.user.id,
@@ -168,7 +170,7 @@ describe("lesson progress", () => {
       title: "X",
       position: 1,
     });
-    world.page.markLessonComplete(world.user.id, otherLesson.id);
+    world.page.markLessonComplete(world.user.id, otherLesson.id, NOW);
 
     expect(
       world.page.getLessonProgressForCourse(world.user.id, world.course.id)
