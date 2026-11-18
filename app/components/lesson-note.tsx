@@ -22,7 +22,7 @@ export function LessonNote({ note }: { note: SavedNote | null }) {
 
   return (
     <Card className="mb-8">
-      <CardContent>
+      <CardContent className="p-6">
         <NoteHeader note={note} draft={draft} />
         <fetcher.Form method="post" className="space-y-2">
           <input type="hidden" name="intent" value="save-note" />
@@ -57,15 +57,19 @@ function NoteHeader({
       <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
         Private
       </span>
-      {note && (
-        <span
-          suppressHydrationWarning
-          className="ml-auto text-xs text-muted-foreground"
-        >
-          {draft.unsaved
-            ? "Unsaved changes"
-            : `Saved ${formatRelativeTime(note.updatedAt)}`}
+      {draft.unsaved ? (
+        <span className="ml-auto text-xs text-muted-foreground">
+          Unsaved changes
         </span>
+      ) : (
+        note && (
+          <span
+            suppressHydrationWarning
+            className="ml-auto text-xs text-muted-foreground"
+          >
+            Saved {formatRelativeTime(note.updatedAt)}
+          </span>
+        )
       )}
     </div>
   );
