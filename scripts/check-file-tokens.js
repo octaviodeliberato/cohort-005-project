@@ -53,6 +53,9 @@ How to split:
 - Scripts and seed data: move large data literals into their own files and
   import them.
 
+Code you move keeps to the lint limits in .oxlintrc.json: the new files do
+not join its exemption lists (\`npm run lint:exemptions\` checks this).
+
 When you are done, run \`npm run check\` and commit again.`);
   process.exit(1);
 }

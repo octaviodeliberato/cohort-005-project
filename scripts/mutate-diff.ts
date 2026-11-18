@@ -7,9 +7,8 @@
  * yours.
  *
  * A line is "touched" if one of these is true:
- * - A commit added or changed it after your diff base: the commit you last
- *   reset to with `npm run reset <slug>`, not `main`. See `findDiffBase`
- *   below.
+ * - A commit added or changed it after your diff base. See `findDiffBase`
+ *   in scripts/diff-base.ts; set `DIFF_BASE=origin/main` to pick it yourself.
  * - It is staged or unstaged in the work tree now.
  * - It is in an untracked file. A new file is yours, so every line counts.
  *
@@ -19,24 +18,13 @@
  *     npm run test:mutation -- app/lib/analytics.ts
  *     npm run test:mutation -- app/lib
  *
- * See the "Verification checks" section of AGENTS.md for how to read the
- * result.
+ * The mutation-testing skill (.agents/skills/mutation-testing) says how to
+ * read the result.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-
-/**
- * The top of the repository.
- *
- * Git reports each path from this directory, but `existsSync` resolves a
- * relative path from the current directory. Resolve every path against this
- * value. If you do not, a run from a subdirectory finds no files and reports
- * "nothing to mutate", which is a false pass.
- */
-const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-  encoding: "utf8",
-}).trim();
+import { findDiffBase, git, isEmptyDiff, repoRoot } from "./diff-base";
 
 /**
  * The directories that hold code a test reaches.
@@ -52,90 +40,6 @@ const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
  * first, then grade it here.
  */
 const TESTED_ROOTS = ["app/lib/", "app/modules/", "request-logger/"];
-
-/**
- * Run git and return its output, one line per entry.
- *
- * A failure throws. A diff that git could not produce must stop the run, not
- * read as "nothing changed" and pass. Pass `optional` only where a failure is
- * an answer: a ref that does not exist, or a detached HEAD.
- *
- * A diff against `main` can run past the 1 MB that `execFileSync` holds by
- * default, so the buffer is far larger than that.
- */
-function git(args: string[], { optional = false } = {}): string[] {
-  try {
-    return execFileSync("git", args, {
-      cwd: repoRoot,
-      encoding: "utf8",
-      maxBuffer: 256 * 1024 * 1024,
-    })
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  } catch (error) {
-    if (optional) return [];
-    throw error;
-  }
-}
-
-/**
- * The commit that "your diff" is measured from.
- *
- * After `npm run reset <slug>`, your branch holds `main` plus every lesson
- * commit up to that slug. A diff against `main` holds all of those lessons, so
- * it is the wrong base. The right base is the commit you reset to: everything
- * after it, committed or not, is yours.
- *
- * `npm run reset` does a `git reset`, so the base is the last reset (or branch
- * creation) in the reflog of the current branch, if HEAD still contains it.
- * If not, it is the merge base with `origin/main`, then with `main`. A clone
- * with neither gets null. The script then examines only the uncommitted
- * changes, which is still a usable result.
- */
-function findDiffBase(): string | null {
-  const branch = git(["symbolic-ref", "--quiet", "--short", "HEAD"], {
-    optional: true,
-  })[0];
-  const reflog = git(
-    [
-      "reflog",
-      "show",
-      "--format=%H%x09%gs",
-      branch ? `refs/heads/${branch}` : "HEAD",
-    ],
-    { optional: true }
-  );
-  for (const line of reflog) {
-    const [sha, subject = ""] = line.split("\t");
-    const isStart =
-      subject.startsWith("reset: moving to") ||
-      subject.startsWith("branch: Created from");
-    if (!sha || !isStart) continue;
-    // A reset that HEAD has since moved away from (a rebase, say) is no
-    // longer the start of your work. Stop looking, and use the merge base.
-    if (isAncestorOfHead(sha)) return sha;
-    break;
-  }
-
-  for (const ref of ["origin/main", "main"]) {
-    const [sha] = git(["merge-base", "HEAD", ref], { optional: true });
-    if (sha) return sha;
-  }
-  return null;
-}
-
-function isAncestorOfHead(sha: string): boolean {
-  try {
-    execFileSync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], {
-      cwd: repoRoot,
-      stdio: "ignore",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function isSource(file: string): boolean {
   return /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file);
@@ -184,6 +88,16 @@ type Target = { file: string; lines: string[] | null };
 function changedTargets(): Target[] {
   const base = findDiffBase();
   console.log(`Diffing against ${base ? base.slice(0, 7) : "nothing"}.\n`);
+  if (isEmptyDiff(base)) {
+    // Not a pass: no line was graded. This is what a reviewer sees when its
+    // diff base lands on the pull request's own head.
+    console.error(
+      "The diff base is HEAD and the work tree is clean, so there is no " +
+        "diff to grade.\nPick the base yourself:\n\n" +
+        "  DIFF_BASE=origin/main npm run test:mutation\n"
+    );
+    process.exit(1);
+  }
   const lines = new Map<string, string[]>();
   let file: string | null = null;
   for (const line of git(["diff", "-U0", "--no-color", base ?? "HEAD"])) {
