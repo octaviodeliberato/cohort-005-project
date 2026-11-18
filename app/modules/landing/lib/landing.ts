@@ -37,7 +37,7 @@ export type LandingPage = {
   stats: LandingStats;
 };
 
-const published = eq(courses.status, CourseStatus.Published);
+const isPublished = eq(courses.status, CourseStatus.Published);
 
 function getFeaturedCourses(db: Db): FeaturedCourse[] {
   const newest = db
@@ -53,7 +53,7 @@ function getFeaturedCourses(db: Db): FeaturedCourse[] {
     .from(courses)
     .innerJoin(users, eq(courses.instructorId, users.id))
     .innerJoin(categories, eq(courses.categoryId, categories.id))
-    .where(published)
+    .where(isPublished)
     .orderBy(desc(courses.createdAt), desc(courses.id))
     .limit(FEATURED_COURSE_COUNT)
     .all();
@@ -88,7 +88,7 @@ function getStats(db: Db): LandingStats {
       categories: countDistinct(courses.categoryId),
     })
     .from(courses)
-    .where(published)
+    .where(isPublished)
     .get();
 
   const lessonStats = db
@@ -96,7 +96,7 @@ function getStats(db: Db): LandingStats {
     .from(lessons)
     .innerJoin(modules, eq(lessons.moduleId, modules.id))
     .innerJoin(courses, eq(modules.courseId, courses.id))
-    .where(published)
+    .where(isPublished)
     .get();
 
   return {
