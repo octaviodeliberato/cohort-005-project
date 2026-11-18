@@ -123,6 +123,26 @@ export function addQuiz(
   return { quiz, questions };
 }
 
+/** A one-question quiz whose question has no options yet, as mid-edit. */
+export function addQuizWithoutOptions(db: TestDb, lessonId: number) {
+  const quiz = db
+    .insert(schema.quizzes)
+    .values({ lessonId, title: "Draft", passingScore: 0.7 })
+    .returning()
+    .get();
+  const question = db
+    .insert(schema.quizQuestions)
+    .values({
+      quizId: quiz.id,
+      questionText: "Q1",
+      questionType: QuestionType.TrueFalse,
+      position: 1,
+    })
+    .returning()
+    .get();
+  return { quiz, question };
+}
+
 export function answersFor(
   questions: Array<{ id: number; right: number; wrong: number }>,
   pick: Array<"right" | "wrong" | "skip">

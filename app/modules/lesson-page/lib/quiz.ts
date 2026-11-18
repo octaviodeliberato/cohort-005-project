@@ -46,15 +46,12 @@ export function quizQueries(db: Db) {
   }
 
   function getOptionsByQuestion(questionIds: number[]) {
-    const options =
-      questionIds.length === 0
-        ? []
-        : db
-            .select()
-            .from(quizOptions)
-            .where(inArray(quizOptions.questionId, questionIds))
-            .orderBy(quizOptions.id)
-            .all();
+    const options = db
+      .select()
+      .from(quizOptions)
+      .where(inArray(quizOptions.questionId, questionIds))
+      .orderBy(quizOptions.id)
+      .all();
     const byQuestion = new Map<number, typeof options>();
     for (const option of options) {
       byQuestion.set(option.questionId, [
@@ -116,9 +113,9 @@ export function quizQueries(db: Db) {
           correctOptionId: null,
         };
       }
+      const options = optionsByQuestion.get(question.id) ?? [];
       const correctOptionId =
-        optionsByQuestion.get(question.id)?.find((option) => option.isCorrect)
-          ?.id ?? null;
+        options.find((option) => option.isCorrect)?.id ?? null;
       return {
         questionId: question.id,
         correct: selected === correctOptionId,

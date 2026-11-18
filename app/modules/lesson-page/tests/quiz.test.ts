@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { QuestionType, quizAnswers } from "~/db/schema";
-import { addLesson, addModule, addQuiz, answersFor, setUp } from "./fixtures";
+import {
+  addLesson,
+  addModule,
+  addQuiz,
+  addQuizWithoutOptions,
+  answersFor,
+  setUp,
+} from "./fixtures";
 
 const { MultipleChoice, TrueFalse } = QuestionType;
 
@@ -39,7 +46,17 @@ describe("finding the quiz", () => {
     expect(full?.questions.map((q) => q.id)).toEqual(
       [...questions].reverse().map((q) => q.id)
     );
-    expect(full?.questions[0].options).toHaveLength(2);
+    expect(full?.questions[0].options).toEqual([
+      expect.objectContaining({ optionText: "wrong", isCorrect: false }),
+      expect.objectContaining({ optionText: "right", isCorrect: true }),
+    ]);
+  });
+
+  it("lists a question without options with none", () => {
+    const { quiz } = addQuizWithoutOptions(world.db, lessonId);
+    expect(world.page.getQuizWithQuestions(quiz.id)?.questions).toEqual([
+      expect.objectContaining({ options: [] }),
+    ]);
   });
 
   it("finds nothing for a lesson or id without a quiz", () => {
@@ -140,6 +157,19 @@ describe("scoring a quiz", () => {
       grade: "F",
       totalQuestions: 0,
     });
+  });
+
+  it("scores an answer to a question without options as wrong", () => {
+    const elsewhere = addQuiz(world.db, lessonId, [TrueFalse]).questions[0];
+    const { quiz, question } = addQuizWithoutOptions(world.db, lessonId);
+    const result = score(quiz.id, { [question.id]: elsewhere.right });
+    expect(result).toMatchObject({ totalCorrect: 0, totalQuestions: 1 });
+    expect(result?.questionResults).toEqual([
+      expect.objectContaining({
+        selectedOptionId: elsewhere.right,
+        correctOptionId: null,
+      }),
+    ]);
   });
 
   it("returns null for an unknown quiz", () => {
