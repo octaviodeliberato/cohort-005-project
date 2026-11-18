@@ -22,17 +22,12 @@ import { CourseImage } from "~/components/course-image";
 import { DevUI } from "~/components/dev-ui";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
-import { eq } from "drizzle-orm";
 import { db } from "~/db";
 import { users } from "~/db/schema";
 import { landing } from "~/modules/landing/index.server";
 
 function getAllUsers() {
   return db.select().from(users).all();
-}
-
-function getUserById(id: number) {
-  return db.select().from(users).where(eq(users.id, id)).get();
 }
 
 const features = [
@@ -68,7 +63,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { featuredCourses, stats } = landing.get();
   const users = getAllUsers();
   const currentUserId = await getCurrentUserId(request);
-  const currentUser = currentUserId ? getUserById(currentUserId) : null;
+  const currentUser = users.find((u) => u.id === currentUserId) ?? null;
   const devCountry = await getDevCountry(request);
   const countryTierInfo = getCountryTierInfo(devCountry);
 
