@@ -163,6 +163,13 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
+      - name: Install agent-browser
+        # The agent checks UI changes in a real browser and saves screenshots
+        # as evidence. See docs/agents/agent-browser.md.
+        run: |
+          npm install -g agent-browser
+          agent-browser install
+
       - name: Migrate and seed the database
         # The pre-commit hook runs on every commit the agent makes, and the
         # repo's checks need a database.
@@ -187,6 +194,11 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           OUTPUT_DIR: ${{ runner.temp }}
+          # The diff the repo's diff-based checks grade (test:mutation,
+          # lint:tokens, lint:exemptions). Without it they measure from this
+          # job's branch creation, which is the pull request's own head, and
+          # grade nothing. See scripts/diff-base.ts.
+          DIFF_BASE: origin/${{ github.event.pull_request.base.ref }}
         run: npx tsx .sandcastle/agent-workflows/review/review.ts
 
       - name: Push the review's fixes
