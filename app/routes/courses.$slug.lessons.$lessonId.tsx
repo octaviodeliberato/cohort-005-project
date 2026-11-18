@@ -48,6 +48,25 @@ const saveNoteSchema = z.object({
     ),
 });
 
+// Runs only after the permission check has found the lesson, which already
+// turns a malformed id into a 404.
+const lessonIdSchema = z.coerce.number().int().positive();
+
+const submitQuizSchema = z.object({
+  quizId: z.coerce.number().int().positive(),
+});
+
+// Answers arrive as fields named "question-{questionId}" whose value is the
+// chosen option id; anything else in the form is ignored.
+const quizAnswerSchema = z.tuple([
+  z
+    .string()
+    .regex(/^question-\d+$/)
+    .transform((key) => key.slice("question-".length))
+    .pipe(z.coerce.number().int().positive()),
+  z.coerce.number().int().positive(),
+]);
+
 const deleteCommentSchema = z.object({
   intent: z.literal("delete-comment"),
   commentId: z.coerce.number().int(),
@@ -95,7 +114,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const { course, person, enrolled, view, take, manage } = decisions;
   const currentUserId = person?.id ?? null;
-  const lessonId = Number(params.lessonId);
+  const lessonId = lessonIdSchema.parse(params.lessonId);
 
   const courseWithDetails = lessonPage.getCourseWithDetails(course.id);
   const lesson = lessonPage.getLessonById(lessonId);
@@ -143,12 +162,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     // Progress is recorded only for people who can take the course, so a
     // Student under a Country Lock gets none.
     if (take.allowed) {
-      // Mark lesson as in-progress when viewed
       lessonPage.markLessonInProgress(currentUserId, lessonId);
       const progress = lessonPage.getLessonProgress(currentUserId, lessonId);
       lessonStatus = progress?.status ?? null;
 
-      // Get progress for all lessons in course (for curriculum sidebar)
       const progressRecords = lessonPage.getLessonProgressForCourse(
         currentUserId,
         course.id
@@ -157,7 +174,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
         lessonProgressMap[record.lessonId] = record.status;
       }
 
-      // Get video watch state for resume and progress display
       if (lesson.videoUrl) {
         lastWatchPosition = lessonPage.getLastWatchPosition(
           currentUserId,
@@ -187,19 +203,16 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : false;
   const note = currentUserId ? getNote(db, currentUserId, lessonId) : undefined;
 
-  // Render lesson content from Markdown to HTML server-side
   const contentHtml = lesson.content
     ? await renderMarkdown(lesson.content)
     : null;
 
-  // Build prev/next navigation
   const allLessons = lessonPage.flattenCourseLessons(courseWithDetails);
   const currentIndex = allLessons.findIndex((l) => l.id === lessonId);
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
   const nextLesson =
     currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
 
-  // Check for quiz attached to this lesson
   const quizRecord = lessonPage.getQuizByLessonId(lessonId);
   let quiz: {
     id: number;
@@ -295,7 +308,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     ref
   );
   const currentUserId = person.id;
-  const lessonId = Number(params.lessonId);
+  const lessonId = lessonIdSchema.parse(params.lessonId);
 
   if (
     intent === "create-comment" ||
@@ -407,10 +420,13 @@ export async function action({ params, request }: Route.ActionArgs) {
   }
 
   if (intent === "submit-quiz") {
-    const quizId = Number(formData.get("quizId"));
-    if (isNaN(quizId)) {
+    const parsedQuiz = submitQuizSchema.safeParse({
+      quizId: formData.get("quizId"),
+    });
+    if (!parsedQuiz.success) {
       throw data("Invalid quiz ID", { status: 400 });
     }
+    const { quizId } = parsedQuiz.data;
     // Scope the quiz to this lesson so a quiz elsewhere can't be reached by
     // posting its id to this route.
     const quiz = lessonPage.getQuizById(quizId);
@@ -418,15 +434,12 @@ export async function action({ params, request }: Route.ActionArgs) {
       throw data("Quiz not found", { status: 404 });
     }
 
-    // Collect answers: form fields named "question-{questionId}" with value = optionId
     const selectedAnswers: Record<number, number> = {};
-    for (const [key, value] of formData.entries()) {
-      if (key.startsWith("question-")) {
-        const questionId = Number(key.replace("question-", ""));
-        const optionId = Number(value);
-        if (!isNaN(questionId) && !isNaN(optionId)) {
-          selectedAnswers[questionId] = optionId;
-        }
+    for (const entry of formData.entries()) {
+      const answer = quizAnswerSchema.safeParse(entry);
+      if (answer.success) {
+        const [questionId, optionId] = answer.data;
+        selectedAnswers[questionId] = optionId;
       }
     }
 
